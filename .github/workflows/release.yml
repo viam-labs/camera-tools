@@ -1,0 +1,82 @@
+name: Release
+
+# run-name is fixed at trigger time, so the computed version can't appear on
+# the first run. The compute job re-dispatches this workflow with `version`
+# filled in; that run is named "Release v0.0.4 (patch)" and does the release.
+run-name: ${{ inputs.version != '' && format('Release {0} ({1})', inputs.version, inputs.bump) || format('Compute next release version ({0} bump)', inputs.bump) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      version:
+        description: "Exact tag to release (leave blank to compute from the latest tag)"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  compute:
+    if: inputs.version == ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute next version and re-dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(git tag --list --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          latest=${latest:-v0.0.0}
+          ver=${latest#v}
+          IFS=. read -r major minor patch <<< "$ver"
+          case "${{ inputs.bump }}" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+          tag="v${major}.${minor}.${patch}"
+          echo "Bumping ${latest} -> ${tag} (${{ inputs.bump }}); dispatching release run"
+          gh workflow run release.yml --repo "${{ github.repository }}" \
+            -f bump="${{ inputs.bump }}" -f version="${tag}"
+
+  release:
+    if: inputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
+
+      # Tags pushed with the default GITHUB_TOKEN do not trigger deploy.yml,
+      # so publish directly from this workflow.
+      - name: Publish module
+        uses: viamrobotics/build-action@v1
+        with:
+          version: ${{ inputs.version }}
+          ref: ${{ github.sha }}
+          key-id: ${{ secrets.viam_key_id }}
+          key-value: ${{ secrets.viam_key_value }}
+          token: ${{ github.token }}

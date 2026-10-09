@@ -1,0 +1,32 @@
+{
+  "$schema": "https://dl.viam.dev/module.schema.json",
+  "module_id": "viam-labs:camera-tools",
+  "visibility": "private",
+  "url": "https://github.com/viam-labs/camera-tools",
+  "description": "Camera tools: read back what each monitor is showing (KMS scanout), and record camera streams to MP4 with a switch",
+  "models": [
+    {
+      "api": "rdk:component:camera",
+      "model": "viam-labs:camera-tools:scanout",
+      "markdown_link": "viam-labs_camera-tools_scanout.md"
+    },
+    {
+      "api": "rdk:component:switch",
+      "model": "viam-labs:camera-tools:recorder",
+      "markdown_link": "viam-labs_camera-tools_recorder.md"
+    }
+  ],
+  "applications": null,
+  "markdown_link": "README.md",
+  "entrypoint": "dist/main/main",
+  "first_run": "",
+  "build": {
+    "build": "./build.sh",
+    "setup": "./setup.sh",
+    "path": "dist/archive.tar.gz",
+    "arch": [
+      "linux/amd64",
+      "linux/arm64"
+    ]
+  }
+}
