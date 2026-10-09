@@ -1,4 +1,4 @@
-# Model viam-labs:camera-tools:scanout
+# Model viam:camera-tools:scanout
 
 A camera that shows what each of the machine's monitors is displaying,
 read back from the hardware (Linux KMS). It's useful for checking a kiosk

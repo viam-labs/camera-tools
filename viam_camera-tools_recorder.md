@@ -1,4 +1,4 @@
-# Model viam-labs:camera-tools:recorder
+# Model viam:camera-tools:recorder
 
 A switch that records camera streams to H.264 MP4 while it is on. It's
 meant for capturing what a machine's screens or cameras showed, so you can

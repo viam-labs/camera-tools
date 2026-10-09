@@ -1,4 +1,4 @@
-"""``viam-labs:camera-tools:scanout``: a camera with one source per connected
+"""``viam:camera-tools:scanout``: a camera with one source per connected
 monitor, each showing what that monitor is displaying right now (drm.py).
 
 An unfiltered GetImages returns every monitor, which is how the Viam app's
@@ -27,7 +27,7 @@ from .drm import Card
 
 
 class Scanout(Camera, EasyResource):
-    MODEL: ClassVar[Model] = Model(ModelFamily("viam-labs", "camera-tools"), "scanout")
+    MODEL: ClassVar[Model] = Model(ModelFamily("viam", "camera-tools"), "scanout")
 
     def __init__(self, name: str) -> None:
         super().__init__(name)

@@ -7,13 +7,13 @@
   "models": [
     {
       "api": "rdk:component:camera",
-      "model": "viam-labs:camera-tools:scanout",
-      "markdown_link": "viam-labs_camera-tools_scanout.md"
+      "model": "viam:camera-tools:scanout",
+      "markdown_link": "viam_camera-tools_scanout.md"
     },
     {
       "api": "rdk:component:switch",
-      "model": "viam-labs:camera-tools:recorder",
-      "markdown_link": "viam-labs_camera-tools_recorder.md"
+      "model": "viam:camera-tools:recorder",
+      "markdown_link": "viam_camera-tools_recorder.md"
     }
   ],
   "applications": null,
