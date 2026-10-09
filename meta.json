@@ -1,6 +1,6 @@
 {
   "$schema": "https://dl.viam.dev/module.schema.json",
-  "module_id": "viam-labs:camera-tools",
+  "module_id": "viam:camera-tools",
   "visibility": "private",
   "url": "https://github.com/viam-labs/camera-tools",
   "description": "Camera tools: read back what each monitor is showing (KMS scanout), and record camera streams to MP4 with a switch",
