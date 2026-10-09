@@ -201,12 +201,15 @@ class Recorder(Switch, EasyResource):
             with open(path, "rb") as f:
                 content = base64.b64encode(f.read()).decode()
             text = "Screen recording, %d:%02d (%s)" % (minutes, seconds, label)
+            # No alt_text: Slack accepts it on a video upload but then never
+            # shares the file to the channel (the upload still reports ok).
             cmd: Dict[str, ValueTypes] = {"command": "send_file", "channel": cfg.slack_channel,
                                           "content_base64": content, "filename": os.path.basename(path),
-                                          "text": text, "alt_text": text}
+                                          "text": text}
             resp = await slack.do_command(cmd) or {}
             if resp.get("error") or resp.get("ok") is False:
                 raise RuntimeError("slack upload of %s failed: %s" % (label, resp.get("error") or resp))
+            LOGGER.info("posted %s (%.1f MB) to %s: file %s", label, mb, cfg.slack_channel, resp.get("file_id"))
 
     async def do_command(self, command: Mapping[str, ValueTypes], *, timeout: Optional[float] = None,
                          **kwargs) -> Mapping[str, ValueTypes]:
