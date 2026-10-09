@@ -15,7 +15,15 @@ The switch shows up in the Viam app's Control tab like any other switch.
 
 Each source gets its own clip, at its own resolution. With more than one
 source there is also a **combined** clip: every source scaled to the same
-height and placed side by side.
+height and placed side by side, frames matched by time.
+
+The combined clip is stitched *after* recording stops, from the
+per-source clips. Encoding it live would cost more than all the other clips
+together. When you stop, the per-source clips are posted straight away; the
+combined one follows once it's stitched. That takes roughly as long as the
+recording itself, and `stitching` is true in the status meanwhile. The
+switch reads Stopped as soon as capture ends, so you can start the next
+recording while the last one is still being stitched.
 
 - **Location:** clips are always written to `out_dir`, by default
   `$VIAM_MODULE_DATA/recordings`. They are named
@@ -46,7 +54,7 @@ height and placed side by side.
 | `sources` | list | **Required** | | What to record. Each entry is `{"camera": <camera name>, "stream": <named image>}`. `stream` picks one of the camera's sources, such as `HDMI-A-1` on a `scanout` camera or `debug` on package-buddy's display camera. Without `stream`, the camera's first image is used. |
 | `fps` | number | Optional | `5` | Frames per second, from 0 to 30. Every source is grabbed this often. |
 | `max_seconds` | number | Optional | `300` | Stop automatically after this long. |
-| `combined` | bool | Optional | `true` | Also write the side-by-side clip when there is more than one source. |
+| `combined` | bool | Optional | `true` | Also stitch the side-by-side clip after recording, when there is more than one source. |
 | `out_dir` | string | Optional | `$VIAM_MODULE_DATA/recordings` | Where clips are written. |
 | `slack` | string | Optional | | Name of a [slack-bot](https://app.viam.com/module/viam/slack-bot) generic service. When it is set, finished clips are also posted to Slack. |
 | `slack_channel` | string | With `slack` | | Channel to post the clips to. |
@@ -62,6 +70,7 @@ Any command returns the recorder's status:
 ```json
 {
   "recording": true,
+  "stitching": false,
   "frames": 42,
   "source_errors": {},
   "dropped_frames": {},

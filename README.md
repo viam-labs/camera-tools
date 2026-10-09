@@ -19,7 +19,7 @@ and its cameras.
 |---|---|
 | `src/camera_tools/drm.py` | Reading a monitor's scanout from KMS (plain ioctls, no libdrm). |
 | `src/camera_tools/scanout.py` | The `scanout` camera. |
-| `src/camera_tools/recording.py` | Grabbing sources on a timer and encoding MP4s with PyAV/libx264. Has no Viam imports. |
+| `src/camera_tools/recording.py` | Grabbing sources on a timer and encoding MP4s with PyAV/libx264, and stitching clips side by side afterwards. Has no Viam imports. |
 | `src/camera_tools/recorder.py` | The `recorder` switch: config, starting and stopping, Slack upload. |
 
 ## How scanout works

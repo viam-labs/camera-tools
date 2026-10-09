@@ -1,5 +1,5 @@
-"""Record a set of image sources to H.264 MP4: one clip per source plus one
-with all of them side by side.
+"""Record a set of image sources to H.264 MP4, one clip per source, and
+afterwards stitch those clips side by side into one (``stitch``).
 
 No Viam imports: a source is a label and an async function returning a PIL
 image, so this runs (and is tested) without a robot. Frames are stamped
@@ -104,8 +104,9 @@ class Result:
 
 class Session:
     """Grabs every source ``fps`` times a second until ``stop()`` or
-    ``max_seconds``, writing ``<out_dir>/<stamp>-<source>.mp4`` and, with
-    ``combined``, ``<stamp>-combined.mp4``."""
+    ``max_seconds``, writing ``<out_dir>/<stamp>-<source>.mp4``. The
+    side-by-side clip is not encoded live (it's the most expensive one):
+    ``stitch`` builds it from these files afterwards, at ``combined_path``."""
 
     def __init__(
         self,
@@ -113,22 +114,18 @@ class Session:
         out_dir: str,
         fps: float = 5.0,
         max_seconds: float = 300.0,
-        combined: bool = True,
-        combined_height: int = 1080,
     ) -> None:
         self.sources = list(sources)
         self.out_dir = out_dir
         self.fps = fps
         self.max_seconds = max_seconds
-        self.combined = combined and len(self.sources) > 1
-        self.combined_height = combined_height
         self._stop = asyncio.Event()
         self.started_at = time.time()
         stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.started_at))
         os.makedirs(out_dir, exist_ok=True)
         self._clips = {label: Clip(os.path.join(out_dir, "%s-%s.mp4" % (stamp, slug(label))))
                        for label, _ in self.sources}
-        self._combined = Clip(os.path.join(out_dir, "%s-combined.mp4" % stamp)) if self.combined else None
+        self.combined_path = os.path.join(out_dir, "%s-combined.mp4" % stamp)
         self._last: Dict[str, Any] = {}
         self.errors: Dict[str, str] = {}
         self.dropped: Dict[str, int] = {}
@@ -172,20 +169,41 @@ class Session:
         for label, clip in self._clips.items():
             if label in self._last:  # a source that failed repeats its last frame
                 clip.add(self._last[label], ms)
-        # The combined clip starts once every source has a frame, so its
-        # layout (and size) never changes mid-clip.
-        if self._combined is not None and len(self._last) == len(self.sources):
-            tiles = [self._last[label] for label, _ in self.sources]
-            self._combined.add(side_by_side(tiles, self.combined_height), ms)
 
     def _close(self) -> Dict[str, str]:
         files = {}
-        if self._combined is not None:
-            path = self._combined.close()
-            if path:
-                files["combined"] = path
         for label, clip in self._clips.items():
             path = clip.close()
             if path:
                 files[label] = path
         return files
+
+
+def stitch(paths: Sequence[str], out_path: str, height: int = 1080) -> Optional[str]:
+    """Tile clips side by side (in order, each scaled to ``height``) into
+    ``out_path``. Frames are matched by timestamp: each output frame shows,
+    for every clip, its latest frame at that moment, so clips that started
+    late or repeat frames stay in sync. Output starts once every clip has a
+    frame. Decodes lazily, one frame per clip in memory. Returns
+    ``out_path``, or None if the clips never overlap."""
+    import av
+
+    containers = [av.open(p) for p in paths]
+    try:
+        streams = [iter(c.decode(video=0)) for c in containers]
+        nxt: List[Any] = [next(s, None) for s in streams]
+        cur: List[Any] = [None] * len(paths)
+        out = Clip(out_path)
+        while any(f is not None for f in nxt):
+            t = min(f.time for f in nxt if f is not None)
+            for i, f in enumerate(nxt):
+                while f is not None and f.time <= t + 1e-6:
+                    cur[i] = f.to_image()
+                    f = next(streams[i], None)
+                nxt[i] = f
+            if all(img is not None for img in cur):
+                out.add(side_by_side(cur, height), int(round(t * 1000)))
+        return out.close()
+    finally:
+        for c in containers:
+            c.close()
