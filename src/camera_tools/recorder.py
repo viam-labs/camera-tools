@@ -28,7 +28,7 @@ from viam.resource.types import Model, ModelFamily
 from viam.services.generic import Generic
 from viam.utils import ValueTypes, struct_to_dict
 
-from .recording import Result, Session
+from .recording import Result, Session, stitch
 
 LOGGER = getLogger("camera_tools.recorder")
 
@@ -82,6 +82,8 @@ class Recorder(Switch, EasyResource):
         self._task: Optional[asyncio.Task] = None
         self.last: Optional[Result] = None
         self.last_error: Optional[str] = None
+        self.stitching = False  # building the combined clip after a recording
+        self._capturing = False
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> "Recorder":
@@ -102,7 +104,9 @@ class Recorder(Switch, EasyResource):
 
     @property
     def recording(self) -> bool:
-        return self._task is not None and not self._task.done()
+        """Capturing frames. Stitching and uploading afterwards don't count:
+        the switch reads Stopped and a new recording can start."""
+        return self._capturing
 
     async def get_position(self, *, extra: Optional[Mapping[str, Any]] = None, timeout: Optional[float] = None,
                            **kwargs) -> int:
@@ -143,26 +147,43 @@ class Recorder(Switch, EasyResource):
         cfg = self.settings
         assert cfg is not None
         session = Session([(s.label, self._grabber(s)) for s in cfg.sources], cfg.out_dir,
-                          fps=cfg.fps, max_seconds=cfg.max_seconds, combined=cfg.combined)
+                          fps=cfg.fps, max_seconds=cfg.max_seconds)
         self._session = session
+        self._capturing = True
         self.last_error = None
         LOGGER.info("recording %s at %g fps (max %gs)", ", ".join(s.label for s in cfg.sources),
                     cfg.fps, cfg.max_seconds)
         self._task = asyncio.get_running_loop().create_task(self._record(session))
 
     async def _record(self, session: Session) -> None:
+        cfg = self.settings
+        assert cfg is not None
         try:
-            result = await session.run()
+            try:
+                result = await session.run()
+            finally:
+                self._capturing = False
             self.last = result
             LOGGER.info("recorded %.1fs, %d frames: %s", result.seconds, result.frames, result.files)
-            await self._post(result)
+            await self._post(result, dict(result.files))  # per-source clips go out right away
+            if cfg.combined and len(result.files) > 1:
+                self.stitching = True
+                try:
+                    path = await asyncio.get_running_loop().run_in_executor(
+                        None, stitch, list(result.files.values()), session.combined_path)
+                finally:
+                    self.stitching = False
+                if path:
+                    result.files["combined"] = path
+                    LOGGER.info("stitched %s", path)
+                    await self._post(result, {"combined": path})
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self.last_error = repr(e)
             LOGGER.exception("recording failed")
 
-    async def _post(self, result: Result) -> None:
+    async def _post(self, result: Result, files: Mapping[str, str]) -> None:
         cfg = self.settings
         if cfg is None or not cfg.slack:
             return
@@ -171,7 +192,7 @@ class Recorder(Switch, EasyResource):
             LOGGER.warning("slack service %r is not available; clips kept in %s", cfg.slack, cfg.out_dir)
             return
         minutes, seconds = divmod(int(round(result.seconds)), 60)
-        for label, path in result.files.items():  # "combined" first, then each source, one post each
+        for label, path in files.items():  # one post each
             mb = os.path.getsize(path) / 1e6
             if mb > cfg.max_upload_mb:
                 LOGGER.warning("not posting %s: %.1f MB is over max_upload_mb (%g); kept at %s",
@@ -192,6 +213,7 @@ class Recorder(Switch, EasyResource):
         last = self.last
         return {
             "recording": self.recording,
+            "stitching": self.stitching,
             "frames": self._session.frames if self.recording and self._session else None,
             "source_errors": dict(self._session.errors) if self._session else {},
             "dropped_frames": dict(self._session.dropped) if self._session else {},
