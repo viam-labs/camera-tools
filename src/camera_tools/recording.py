@@ -20,6 +20,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tup
 LOGGER = logging.getLogger(__name__)
 
 Grab = Callable[[], Awaitable[Any]]  # -> PIL.Image
+MS = Fraction(1, 1000)  # frame timestamps are milliseconds
 
 
 def _even(n: int) -> int:
@@ -52,14 +53,17 @@ class Clip:
             s = self._container.add_stream("libx264", rate=1000)
             s.width, s.height = self.size
             s.pix_fmt = "yuv420p"
-            s.time_base = Fraction(1, 1000)
-            s.options = {"crf": str(self.crf), "preset": "veryfast", "tune": "stillimage"}
+            s.time_base = MS
+            s.options = {"crf": str(self.crf), "preset": "superfast", "tune": "stillimage"}
             self._stream = s
         if img.size != self.size:
             img = img.resize(self.size)
         frame = av.VideoFrame.from_image(img)
         frame.pts = ms
-        frame.time_base = self._stream.time_base
+        # Not the stream's time base: the MP4 muxer changes that (to
+        # 1/16000) once the header is written, which would rescale every
+        # later timestamp and send them backwards.
+        frame.time_base = MS
         for packet in self._stream.encode(frame):
             self._container.mux(packet)
         self.frames += 1
