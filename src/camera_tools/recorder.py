@@ -1,4 +1,4 @@
-"""``viam-labs:camera-tools:recorder``: a two-position switch that records
+"""``viam:camera-tools:recorder``: a two-position switch that records
 camera streams to H.264 MP4 while it is on, and posts the clips to Slack
 when it is switched off.
 
@@ -72,7 +72,7 @@ class Settings:
 
 
 class Recorder(Switch, EasyResource):
-    MODEL: ClassVar[Model] = Model(ModelFamily("viam-labs", "camera-tools"), "recorder")
+    MODEL: ClassVar[Model] = Model(ModelFamily("viam", "camera-tools"), "recorder")
 
     def __init__(self, name: str) -> None:
         super().__init__(name)

@@ -5,10 +5,10 @@ and its cameras.
 
 ## Models
 
-- [`viam-labs:camera-tools:scanout`](viam-labs_camera-tools_scanout.md): a
+- [`viam:camera-tools:scanout`](viam_camera-tools_scanout.md): a
   camera with one source per connected monitor (`HDMI-A-1`, `DP-2`, …).
   Each source shows that monitor's pixels, read back from Linux KMS.
-- [`viam-labs:camera-tools:recorder`](viam-labs_camera-tools_recorder.md): a
+- [`viam:camera-tools:recorder`](viam_camera-tools_recorder.md): a
   switch that records any camera streams to H.264 MP4 while it's on. Each
   source gets its own clip, plus one with all of them side by side. Clips
   are saved locally and can also be posted to Slack.
@@ -46,5 +46,5 @@ pytest
 Releases: run the **Release** workflow with a version, or push a `vX.Y.Z`
 tag. Both publish through `viamrobotics/build-action`, which needs the
 `viam_key_id` and `viam_key_value` repository secrets. The module ID
-`viam-labs:camera-tools` has to exist in the registry first (`viam module
+`viam:camera-tools` has to exist in the registry first (`viam module
 create`).
