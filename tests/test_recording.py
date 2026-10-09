@@ -33,3 +33,17 @@ async def test_records_each_source_and_a_combined_clip(tmp_path):
         sizes[label] = (frames[0].width, frames[0].height)
         assert len(frames) == result.frames  # a failed grab repeats the last frame
     assert sizes == {"main": (320, 180), "debug": (240, 180), "combined": (560, 180)}
+
+
+def test_clip_timestamps_survive_muxing_mid_stream(tmp_path):
+    # Long enough for x264 to emit packets (and the MP4 header to be
+    # written) before close; frame times must stay monotonic in the file.
+    from camera_tools.recording import Clip
+
+    clip = Clip(str(tmp_path / "c.mp4"))
+    for i in range(80):
+        clip.add(Image.new("RGB", (64, 48), (i * 3 % 255, 0, 0)), i * 200)
+    path = clip.close()
+    with av.open(path) as f:
+        times = [fr.time for fr in f.decode(video=0)]
+    assert len(times) == 80 and times == sorted(times) and abs(times[-1] - 15.8) < 0.01
