@@ -19,14 +19,25 @@ def source(color, size, fail_every=0):
 
 
 async def test_records_each_source_then_stitches_them(tmp_path):
-    session = Session([("main", source("red", (320, 180))), ("debug", source("blue", (240, 180), fail_every=3))],
-                      str(tmp_path), fps=20, max_seconds=60)
+    session = Session(
+        [
+            ("main", source("red", (320, 180))),
+            ("debug", source("blue", (240, 180), fail_every=3)),
+        ],
+        str(tmp_path),
+        fps=20,
+        max_seconds=60,
+    )
     asyncio.get_running_loop().call_later(0.5, session.stop)
     result = await session.run()
 
     assert set(result.files) == {"main", "debug"}  # nothing combined while recording
-    result.files["combined"] = stitch(list(result.files.values()), session.combined_path, height=180)
-    assert result.dropped["debug"] == result.frames // 3 and "main" not in result.dropped
+    result.files["combined"] = stitch(
+        list(result.files.values()), session.combined_path, height=180
+    )
+    assert (
+        result.dropped["debug"] == result.frames // 3 and "main" not in result.dropped
+    )
     sizes = {}
     for label, path in result.files.items():
         with av.open(path) as f:
@@ -58,10 +69,18 @@ def test_stitch_waits_for_every_clip_and_matches_frames_by_time(tmp_path):
         early.add(Image.new("RGB", (64, 48), "red"), i * 200)
         if i >= 10:  # starts 2 s later
             late.add(Image.new("RGB", (32, 48), "blue"), i * 200)
-    out = stitch([early.close(), late.close()], str(tmp_path / "combined.mp4"), height=48)
+    out = stitch(
+        [early.close(), late.close()], str(tmp_path / "combined.mp4"), height=48
+    )
     with av.open(out) as f:
         frames = list(f.decode(video=0))
     assert (frames[0].width, frames[0].height) == (96, 48)
-    assert len(frames) == 20 and abs(frames[0].time - 2.0) < 0.01 and abs(frames[-1].time - 5.8) < 0.01
+    assert (
+        len(frames) == 20
+        and abs(frames[0].time - 2.0) < 0.01
+        and abs(frames[-1].time - 5.8) < 0.01
+    )
     px = frames[5].to_image()
-    assert px.getpixel((10, 24))[0] > 200 and px.getpixel((80, 24))[2] > 200  # red left, blue right
+    assert (
+        px.getpixel((10, 24))[0] > 200 and px.getpixel((80, 24))[2] > 200
+    )  # red left, blue right
