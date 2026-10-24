@@ -14,8 +14,8 @@ import logging
 import os
 import re
 import time
-from fractions import Fraction
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 LOGGER = logging.getLogger(__name__)
