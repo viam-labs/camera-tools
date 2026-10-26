@@ -11,6 +11,7 @@ asks a connector to re-probe. Needs root (CAP_SYS_ADMIN) to be handed the
 framebuffer handles. Plain ioctls, no libdrm; layouts from
 include/uapi/drm/drm.h and drm_mode.h.
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -56,9 +57,29 @@ MAP = _iowr(0xB3, MAP_DUMB.size)
 
 CONNECTED = 1
 # drm_connector_enum_list: how the kernel (and sysfs) names connector types
-CONNECTOR_TYPES = ["Unknown", "VGA", "DVI-I", "DVI-D", "DVI-A", "Composite", "SVIDEO", "LVDS", "Component",
-                   "DIN", "DP", "HDMI-A", "HDMI-B", "TV", "eDP", "Virtual", "DSI", "DPI", "Writeback", "SPI",
-                   "USB"]
+CONNECTOR_TYPES = [
+    "Unknown",
+    "VGA",
+    "DVI-I",
+    "DVI-D",
+    "DVI-A",
+    "Composite",
+    "SVIDEO",
+    "LVDS",
+    "Component",
+    "DIN",
+    "DP",
+    "HDMI-A",
+    "HDMI-B",
+    "TV",
+    "eDP",
+    "Virtual",
+    "DSI",
+    "DPI",
+    "Writeback",
+    "SPI",
+    "USB",
+]
 
 
 def _call(fd: int, req: int, st: struct.Struct, *fields) -> tuple:

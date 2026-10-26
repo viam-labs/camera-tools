@@ -6,6 +6,7 @@ source picker discovers them (as the RealSense module does with color and
 depth); ``filter_source_names`` picks monitors by connector name
 (``HDMI-A-1``, ``DP-2``, ...). The first source is the default view.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -89,8 +90,9 @@ class Scanout(Camera, EasyResource):
             raise
         wanted = [n for n in (filter_source_names or connected) if n in connected]
         if not wanted:
-            raise Exception("unknown source %s; connected monitors: %s"
-                            % (list(filter_source_names or []), connected or "none"))
+            raise Exception(
+                "unknown source %s; connected monitors: %s" % (list(filter_source_names or []), connected or "none")
+            )
         images = []
         for name in wanted:
             images.append(NamedImage(name, await run(None, self._jpeg, name), CameraMimeType.JPEG))

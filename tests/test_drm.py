@@ -8,7 +8,11 @@ import camera_tools.drm as drm
 
 def test_ioctl_numbers_match_the_kernel():
     assert (drm.GET_RESOURCES, drm.GET_CRTC, drm.GET_ENCODER, drm.GET_CONNECTOR) == (
-        0xC04064A0, 0xC06864A1, 0xC01464A6, 0xC05064A7)
+        0xC04064A0,
+        0xC06864A1,
+        0xC01464A6,
+        0xC05064A7,
+    )
     assert (drm.GET_FB, drm.MAP, drm.GEM_CLOSE, drm.DROP_MASTER) == (0xC01C64AD, 0xC01064B3, 0x40086409, 0x641F)
 
 
@@ -26,8 +30,14 @@ class FakeCard:
         if req == drm.GEM_CLOSE:
             self.closed.append(drm.GEM_CLOSE_ARG.unpack(arg)[0])
             return 0
-        st = {drm.GET_RESOURCES: drm.CARD_RES, drm.GET_CONNECTOR: drm.CONNECTOR, drm.GET_ENCODER: drm.ENCODER,
-              drm.GET_CRTC: drm.CRTC, drm.GET_FB: drm.FB_CMD, drm.MAP: drm.MAP_DUMB}[req]
+        st = {
+            drm.GET_RESOURCES: drm.CARD_RES,
+            drm.GET_CONNECTOR: drm.CONNECTOR,
+            drm.GET_ENCODER: drm.ENCODER,
+            drm.GET_CRTC: drm.CRTC,
+            drm.GET_FB: drm.FB_CMD,
+            drm.MAP: drm.MAP_DUMB,
+        }[req]
         f = list(st.unpack(arg))
         if req == drm.GET_RESOURCES:
             if f[2] and f[6] >= 2:

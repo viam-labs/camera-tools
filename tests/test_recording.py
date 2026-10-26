@@ -19,8 +19,12 @@ def source(color, size, fail_every=0):
 
 
 async def test_records_each_source_then_stitches_them(tmp_path):
-    session = Session([("main", source("red", (320, 180))), ("debug", source("blue", (240, 180), fail_every=3))],
-                      str(tmp_path), fps=20, max_seconds=60)
+    session = Session(
+        [("main", source("red", (320, 180))), ("debug", source("blue", (240, 180), fail_every=3))],
+        str(tmp_path),
+        fps=20,
+        max_seconds=60,
+    )
     asyncio.get_running_loop().call_later(0.5, session.stop)
     result = await session.run()
 

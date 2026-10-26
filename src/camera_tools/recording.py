@@ -6,6 +6,7 @@ image, so this runs (and is tested) without a robot. Frames are stamped
 with wall-clock time, so a slow or failed grab stretches a frame instead of
 speeding the clip up.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -13,8 +14,8 @@ import logging
 import os
 import re
 import time
-from fractions import Fraction
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 LOGGER = logging.getLogger(__name__)
@@ -123,8 +124,9 @@ class Session:
         self.started_at = time.time()
         stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.started_at))
         os.makedirs(out_dir, exist_ok=True)
-        self._clips = {label: Clip(os.path.join(out_dir, "%s-%s.mp4" % (stamp, slug(label))))
-                       for label, _ in self.sources}
+        self._clips = {
+            label: Clip(os.path.join(out_dir, "%s-%s.mp4" % (stamp, slug(label)))) for label, _ in self.sources
+        }
         self.combined_path = os.path.join(out_dir, "%s-combined.mp4" % stamp)
         self._last: Dict[str, Any] = {}
         self.errors: Dict[str, str] = {}
