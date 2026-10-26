@@ -42,21 +42,15 @@ class Source:
         if not self.camera:
             raise ValueError("every source needs a camera")
         self.stream = str(attrs["stream"]) if attrs.get("stream") else None
-        self.label = (
-            "%s-%s" % (self.camera, self.stream) if self.stream else self.camera
-        )
+        self.label = "%s-%s" % (self.camera, self.stream) if self.stream else self.camera
 
 
 class Settings:
     def __init__(self, attrs: Mapping[str, Any]) -> None:
         raw = attrs.get("sources") or []
         if not isinstance(raw, list) or not raw:
-            raise ValueError(
-                'sources must list at least one {"camera": ..., "stream": ...}'
-            )
-        self.sources = [
-            Source(s if isinstance(s, Mapping) else {"camera": s}) for s in raw
-        ]
+            raise ValueError('sources must list at least one {"camera": ..., "stream": ...}')
+        self.sources = [Source(s if isinstance(s, Mapping) else {"camera": s}) for s in raw]
         labels = [s.label for s in self.sources]
         if len(set(labels)) != len(labels):
             raise ValueError("sources repeat a camera/stream pair: %s" % labels)
@@ -72,17 +66,12 @@ class Settings:
         self.max_upload_mb = float(attrs.get("max_upload_mb", 25.0))
         self.out_dir = str(
             attrs.get("out_dir")
-            or os.path.join(
-                os.environ.get("VIAM_MODULE_DATA") or tempfile.gettempdir(),
-                "recordings",
-            )
+            or os.path.join(os.environ.get("VIAM_MODULE_DATA") or tempfile.gettempdir(), "recordings")
         )
 
     def dependencies(self) -> Tuple[List[str], List[str]]:
         """(required cameras, optional slack service)."""
-        return sorted({s.camera for s in self.sources}), [
-            self.slack
-        ] if self.slack else []
+        return sorted({s.camera for s in self.sources}), [self.slack] if self.slack else []
 
 
 class Recorder(Switch, EasyResource):
@@ -100,22 +89,16 @@ class Recorder(Switch, EasyResource):
         self._capturing = False
 
     @classmethod
-    def new(
-        cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]
-    ) -> "Recorder":
+    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> "Recorder":
         instance = cls(config.name)
         instance.reconfigure(config, dependencies)
         return instance
 
     @classmethod
-    def validate_config(
-        cls, config: ComponentConfig
-    ) -> Tuple[Sequence[str], Sequence[str]]:
+    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
         return Settings(struct_to_dict(config.attributes)).dependencies()
 
-    def reconfigure(
-        self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]
-    ) -> None:
+    def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> None:
         # A recording in progress keeps the sources it started with.
         self.settings = Settings(struct_to_dict(config.attributes))
         self.deps = {rn.name: res for rn, res in dependencies.items()}
@@ -129,30 +112,17 @@ class Recorder(Switch, EasyResource):
         return self._capturing
 
     async def get_position(
-        self,
-        *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        self, *, extra: Optional[Mapping[str, Any]] = None, timeout: Optional[float] = None, **kwargs
     ) -> int:
         return 1 if self.recording else 0
 
     async def get_number_of_positions(
-        self,
-        *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        self, *, extra: Optional[Mapping[str, Any]] = None, timeout: Optional[float] = None, **kwargs
     ) -> Tuple[int, Sequence[str]]:
         return len(POSITIONS), POSITIONS
 
     async def set_position(
-        self,
-        position: int,
-        *,
-        extra: Optional[Mapping[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        self, position: int, *, extra: Optional[Mapping[str, Any]] = None, timeout: Optional[float] = None, **kwargs
     ) -> None:
         if position not in (0, 1):
             raise ValueError("position must be 0 (stop) or 1 (record)")
@@ -171,9 +141,7 @@ class Recorder(Switch, EasyResource):
         async def grab():
             from PIL import Image
 
-            images, _ = await camera.get_images(
-                filter_source_names=[source.stream] if source.stream else None
-            )
+            images, _ = await camera.get_images(filter_source_names=[source.stream] if source.stream else None)
             if not images:
                 raise RuntimeError("%s returned no image" % source.label)
             img = images[0]
@@ -185,19 +153,13 @@ class Recorder(Switch, EasyResource):
         cfg = self.settings
         assert cfg is not None
         session = Session(
-            [(s.label, self._grabber(s)) for s in cfg.sources],
-            cfg.out_dir,
-            fps=cfg.fps,
-            max_seconds=cfg.max_seconds,
+            [(s.label, self._grabber(s)) for s in cfg.sources], cfg.out_dir, fps=cfg.fps, max_seconds=cfg.max_seconds
         )
         self._session = session
         self._capturing = True
         self.last_error = None
         LOGGER.info(
-            "recording %s at %g fps (max %gs)",
-            ", ".join(s.label for s in cfg.sources),
-            cfg.fps,
-            cfg.max_seconds,
+            "recording %s at %g fps (max %gs)", ", ".join(s.label for s in cfg.sources), cfg.fps, cfg.max_seconds
         )
         self._task = asyncio.get_running_loop().create_task(self._record(session))
 
@@ -210,15 +172,8 @@ class Recorder(Switch, EasyResource):
             finally:
                 self._capturing = False
             self.last = result
-            LOGGER.info(
-                "recorded %.1fs, %d frames: %s",
-                result.seconds,
-                result.frames,
-                result.files,
-            )
-            await self._post(
-                result, dict(result.files)
-            )  # per-source clips go out right away
+            LOGGER.info("recorded %.1fs, %d frames: %s", result.seconds, result.frames, result.files)
+            await self._post(result, dict(result.files))  # per-source clips go out right away
             if cfg.combined and len(result.files) > 1:
                 self.stitching = True
                 try:
@@ -243,22 +198,14 @@ class Recorder(Switch, EasyResource):
             return
         slack = cast(Generic, self.deps.get(cfg.slack))
         if slack is None:
-            LOGGER.warning(
-                "slack service %r is not available; clips kept in %s",
-                cfg.slack,
-                cfg.out_dir,
-            )
+            LOGGER.warning("slack service %r is not available; clips kept in %s", cfg.slack, cfg.out_dir)
             return
         minutes, seconds = divmod(int(round(result.seconds)), 60)
         for label, path in files.items():  # one post each
             mb = os.path.getsize(path) / 1e6
             if mb > cfg.max_upload_mb:
                 LOGGER.warning(
-                    "not posting %s: %.1f MB is over max_upload_mb (%g); kept at %s",
-                    label,
-                    mb,
-                    cfg.max_upload_mb,
-                    path,
+                    "not posting %s: %.1f MB is over max_upload_mb (%g); kept at %s", label, mb, cfg.max_upload_mb, path
                 )
                 continue
             with open(path, "rb") as f:
@@ -275,31 +222,17 @@ class Recorder(Switch, EasyResource):
             }
             resp = await slack.do_command(cmd) or {}
             if resp.get("error") or resp.get("ok") is False:
-                raise RuntimeError(
-                    "slack upload of %s failed: %s" % (label, resp.get("error") or resp)
-                )
-            LOGGER.info(
-                "posted %s (%.1f MB) to %s: file %s",
-                label,
-                mb,
-                cfg.slack_channel,
-                resp.get("file_id"),
-            )
+                raise RuntimeError("slack upload of %s failed: %s" % (label, resp.get("error") or resp))
+            LOGGER.info("posted %s (%.1f MB) to %s: file %s", label, mb, cfg.slack_channel, resp.get("file_id"))
 
     async def do_command(
-        self,
-        command: Mapping[str, ValueTypes],
-        *,
-        timeout: Optional[float] = None,
-        **kwargs,
+        self, command: Mapping[str, ValueTypes], *, timeout: Optional[float] = None, **kwargs
     ) -> Mapping[str, ValueTypes]:
         last = self.last
         return {
             "recording": self.recording,
             "stitching": self.stitching,
-            "frames": self._session.frames
-            if self.recording and self._session
-            else None,
+            "frames": self._session.frames if self.recording and self._session else None,
             "source_errors": dict(self._session.errors) if self._session else {},
             "dropped_frames": dict(self._session.dropped) if self._session else {},
             "last_files": dict(last.files) if last else {},
@@ -311,8 +244,6 @@ class Recorder(Switch, EasyResource):
         if self._session is not None and self.recording:
             self._session.stop()
             try:
-                await asyncio.wait_for(
-                    asyncio.shield(self._task), 10
-                )  # finish the files
+                await asyncio.wait_for(asyncio.shield(self._task), 10)  # finish the files
             except Exception:
                 pass

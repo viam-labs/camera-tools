@@ -50,18 +50,12 @@ class Clip:
         img = img.convert("RGB")
         if self._container is None:
             self.size = (_even(img.width), _even(img.height))
-            self._container = av.open(
-                self.path, mode="w", options={"movflags": "+faststart"}
-            )
+            self._container = av.open(self.path, mode="w", options={"movflags": "+faststart"})
             s = self._container.add_stream("libx264", rate=1000)
             s.width, s.height = self.size
             s.pix_fmt = "yuv420p"
             s.time_base = MS
-            s.options = {
-                "crf": str(self.crf),
-                "preset": "superfast",
-                "tune": "stillimage",
-            }
+            s.options = {"crf": str(self.crf), "preset": "superfast", "tune": "stillimage"}
             self._stream = s
         if img.size != self.size:
             img = img.resize(self.size)
@@ -90,10 +84,7 @@ def side_by_side(images: Sequence[Any], height: int) -> Any:
     """Scale every image to ``height`` (keeping aspect) and tile left to right."""
     from PIL import Image
 
-    scaled = [
-        im.convert("RGB").resize((max(1, round(im.width * height / im.height)), height))
-        for im in images
-    ]
+    scaled = [im.convert("RGB").resize((max(1, round(im.width * height / im.height)), height)) for im in images]
     out = Image.new("RGB", (_even(sum(im.width for im in scaled)), _even(height)))
     x = 0
     for im in scaled:
@@ -106,16 +97,10 @@ def side_by_side(images: Sequence[Any], height: int) -> Any:
 class Result:
     started_at: float
     seconds: float
-    files: Dict[str, str] = field(
-        default_factory=dict
-    )  # label ("combined" or a source) -> path
+    files: Dict[str, str] = field(default_factory=dict)  # label ("combined" or a source) -> path
     frames: int = 0
-    errors: Dict[str, str] = field(
-        default_factory=dict
-    )  # source label -> last grab error
-    dropped: Dict[str, int] = field(
-        default_factory=dict
-    )  # source label -> failed grabs
+    errors: Dict[str, str] = field(default_factory=dict)  # source label -> last grab error
+    dropped: Dict[str, int] = field(default_factory=dict)  # source label -> failed grabs
 
 
 class Session:
@@ -140,8 +125,7 @@ class Session:
         stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.started_at))
         os.makedirs(out_dir, exist_ok=True)
         self._clips = {
-            label: Clip(os.path.join(out_dir, "%s-%s.mp4" % (stamp, slug(label))))
-            for label, _ in self.sources
+            label: Clip(os.path.join(out_dir, "%s-%s.mp4" % (stamp, slug(label)))) for label, _ in self.sources
         }
         self.combined_path = os.path.join(out_dir, "%s-combined.mp4" % stamp)
         self._last: Dict[str, Any] = {}
@@ -157,9 +141,7 @@ class Session:
             return await grab()
         except Exception as e:
             if self.errors.get(label) != repr(e):  # once per distinct error
-                LOGGER.warning(
-                    "recording: %s failed: %r (repeating its last frame)", label, e
-                )
+                LOGGER.warning("recording: %s failed: %r (repeating its last frame)", label, e)
             self.errors[label] = repr(e)
             self.dropped[label] = self.dropped.get(label, 0) + 1
             return None
@@ -170,9 +152,7 @@ class Session:
         loop = asyncio.get_running_loop()
         while not self._stop.is_set() and time.monotonic() - t0 < self.max_seconds:
             tick = time.monotonic()
-            images = await asyncio.gather(
-                *(self._grab(label, g) for label, g in self.sources)
-            )
+            images = await asyncio.gather(*(self._grab(label, g) for label, g in self.sources))
             ms = int((tick - t0) * 1000)
             for (label, _), img in zip(self.sources, images):
                 if img is not None:
@@ -180,21 +160,12 @@ class Session:
             await loop.run_in_executor(None, self._encode, ms)
             self.frames += 1
             try:
-                await asyncio.wait_for(
-                    self._stop.wait(), max(0.0, period - (time.monotonic() - tick))
-                )
+                await asyncio.wait_for(self._stop.wait(), max(0.0, period - (time.monotonic() - tick)))
             except asyncio.TimeoutError:
                 pass
         seconds = time.monotonic() - t0
         files = await loop.run_in_executor(None, self._close)
-        return Result(
-            self.started_at,
-            seconds,
-            files,
-            self.frames,
-            dict(self.errors),
-            dict(self.dropped),
-        )
+        return Result(self.started_at, seconds, files, self.frames, dict(self.errors), dict(self.dropped))
 
     def _encode(self, ms: int) -> None:
         for label, clip in self._clips.items():

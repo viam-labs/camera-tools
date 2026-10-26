@@ -104,9 +104,7 @@ class Frame:
         from PIL import Image
 
         px = np.frombuffer(self.pixels, dtype=np.uint8)[: self.stride * self.height]
-        px = px.reshape(self.height, self.stride // 4, 4)[
-            :, : self.width, 2::-1
-        ]  # BGRX -> RGB
+        px = px.reshape(self.height, self.stride // 4, 4)[:, : self.width, 2::-1]  # BGRX -> RGB
         return Image.fromarray(np.ascontiguousarray(px))
 
 
@@ -144,33 +142,15 @@ class Card:
         counts = _call(fd, GET_RESOURCES, CARD_RES, 0, 0, 0, 0, *([0] * 8))
         n = counts[6]
         ids = (ctypes.c_uint32 * max(n, 1))()
-        got = _call(
-            fd,
-            GET_RESOURCES,
-            CARD_RES,
-            0,
-            0,
-            ctypes.addressof(ids),
-            0,
-            0,
-            0,
-            n,
-            0,
-            *([0] * 4),
-        )
+        got = _call(fd, GET_RESOURCES, CARD_RES, 0, 0, ctypes.addressof(ids), 0, 0, 0, n, 0, *([0] * 4))
         out: Dict[str, int] = {}
         for cid in list(ids)[: min(n, got[6])]:
             # count_modes stays 0 and we aren't master, so this doesn't probe.
-            c = _call(
-                fd, GET_CONNECTOR, CONNECTOR, 0, 0, 0, 0, *([0] * 4), cid, *([0] * 7)
-            )
+            c = _call(fd, GET_CONNECTOR, CONNECTOR, 0, 0, 0, 0, *([0] * 4), cid, *([0] * 7))
             if c[11] != CONNECTED:
                 continue
             kind = c[9]
-            name = "%s-%d" % (
-                CONNECTOR_TYPES[kind] if kind < len(CONNECTOR_TYPES) else "Unknown",
-                c[10],
-            )
+            name = "%s-%d" % (CONNECTOR_TYPES[kind] if kind < len(CONNECTOR_TYPES) else "Unknown", c[10])
             crtc = 0
             if c[7]:  # its current encoder
                 try:
@@ -189,40 +169,22 @@ class Card:
         with self._lock:
             crtcs = self._crtcs()
             if connector not in crtcs:
-                raise KeyError(
-                    "%s is not connected (connected: %s)"
-                    % (connector, ", ".join(crtcs) or "none")
-                )
+                raise KeyError("%s is not connected (connected: %s)" % (connector, ", ".join(crtcs) or "none"))
             crtc_id = crtcs[connector]
             if not crtc_id:
-                raise RuntimeError(
-                    "%s is connected but no CRTC drives it (monitor off?)" % connector
-                )
+                raise RuntimeError("%s is connected but no CRTC drives it (monitor off?)" % connector)
             fd = self._fd
-            fb_id = _call(
-                fd, GET_CRTC, CRTC, 0, 0, crtc_id, 0, 0, 0, 0, 0, bytes(MODEINFO.size)
-            )[3]
+            fb_id = _call(fd, GET_CRTC, CRTC, 0, 0, crtc_id, 0, 0, 0, 0, 0, bytes(MODEINFO.size))[3]
             if not fb_id:
-                raise RuntimeError(
-                    "%s: CRTC %d is scanning out nothing" % (connector, crtc_id)
-                )
-            _, w, h, pitch, bpp, _, handle = _call(
-                fd, GET_FB, FB_CMD, fb_id, 0, 0, 0, 0, 0, 0
-            )
+                raise RuntimeError("%s: CRTC %d is scanning out nothing" % (connector, crtc_id))
+            _, w, h, pitch, bpp, _, handle = _call(fd, GET_FB, FB_CMD, fb_id, 0, 0, 0, 0, 0, 0)
             if not handle:
-                raise PermissionError(
-                    "%s: no handle for framebuffer %d (needs root)" % (connector, fb_id)
-                )
+                raise PermissionError("%s: no handle for framebuffer %d (needs root)" % (connector, fb_id))
             try:
                 if bpp != 32:
-                    raise RuntimeError(
-                        "%s: framebuffer is %d bpp; only 32 bpp reads back"
-                        % (connector, bpp)
-                    )
+                    raise RuntimeError("%s: framebuffer is %d bpp; only 32 bpp reads back" % (connector, bpp))
                 offset = _call(fd, MAP, MAP_DUMB, handle, 0, 0)[2]
-                with mmap.mmap(
-                    fd, pitch * h, mmap.MAP_SHARED, mmap.PROT_READ, offset=offset
-                ) as mm:
+                with mmap.mmap(fd, pitch * h, mmap.MAP_SHARED, mmap.PROT_READ, offset=offset) as mm:
                     pixels = bytes(mm)
             finally:
                 try:

@@ -13,12 +13,7 @@ def test_ioctl_numbers_match_the_kernel():
         0xC01464A6,
         0xC05064A7,
     )
-    assert (drm.GET_FB, drm.MAP, drm.GEM_CLOSE, drm.DROP_MASTER) == (
-        0xC01C64AD,
-        0xC01064B3,
-        0x40086409,
-        0x641F,
-    )
+    assert (drm.GET_FB, drm.MAP, drm.GEM_CLOSE, drm.DROP_MASTER) == (0xC01C64AD, 0xC01064B3, 0x40086409, 0x641F)
 
 
 class FakeCard:
@@ -50,12 +45,7 @@ class FakeCard:
             f[6] = 2
         elif req == drm.GET_CONNECTOR:
             hdmi = f[8] == 31
-            f[7], f[9], f[10], f[11] = (
-                (40 if hdmi else 0),
-                (11 if hdmi else 10),
-                1,
-                (1 if hdmi else 2),
-            )
+            f[7], f[9], f[10], f[11] = (40 if hdmi else 0), (11 if hdmi else 10), 1, (1 if hdmi else 2)
         elif req == drm.GET_ENCODER:
             f[2] = 50
         elif req == drm.GET_CRTC:

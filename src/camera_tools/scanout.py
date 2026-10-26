@@ -37,17 +37,13 @@ class Scanout(Camera, EasyResource):
         self._card: Optional[Card] = None
 
     @classmethod
-    def new(
-        cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]
-    ) -> "Scanout":
+    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> "Scanout":
         instance = cls(config.name)
         instance.reconfigure(config, dependencies)
         return instance
 
     @classmethod
-    def validate_config(
-        cls, config: ComponentConfig
-    ) -> Tuple[Sequence[str], Sequence[str]]:
+    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
         attrs = struct_to_dict(config.attributes)
         card = attrs.get("card")
         if card is not None and not str(card).startswith("/dev/dri/card"):
@@ -57,9 +53,7 @@ class Scanout(Camera, EasyResource):
             raise ValueError("jpeg_quality must be 1-100, not %d" % quality)
         return [], []
 
-    def reconfigure(
-        self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]
-    ) -> None:
+    def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> None:
         attrs = struct_to_dict(config.attributes)
         self.card_path = str(attrs["card"]) if attrs.get("card") else None
         self.quality = int(attrs.get("jpeg_quality", 90))
@@ -77,9 +71,7 @@ class Scanout(Camera, EasyResource):
 
     def _jpeg(self, connector: str) -> bytes:
         buf = io.BytesIO()
-        self._open().capture(connector).rgb().save(
-            buf, format="JPEG", quality=self.quality
-        )
+        self._open().capture(connector).rgb().save(buf, format="JPEG", quality=self.quality)
         return buf.getvalue()
 
     async def get_images(
@@ -99,30 +91,21 @@ class Scanout(Camera, EasyResource):
         wanted = [n for n in (filter_source_names or connected) if n in connected]
         if not wanted:
             raise Exception(
-                "unknown source %s; connected monitors: %s"
-                % (list(filter_source_names or []), connected or "none")
+                "unknown source %s; connected monitors: %s" % (list(filter_source_names or []), connected or "none")
             )
         images = []
         for name in wanted:
-            images.append(
-                NamedImage(name, await run(None, self._jpeg, name), CameraMimeType.JPEG)
-            )
+            images.append(NamedImage(name, await run(None, self._jpeg, name), CameraMimeType.JPEG))
         captured = Timestamp()
         captured.GetCurrentTime()
         return images, ResponseMetadata(captured_at=captured)
 
     async def get_point_cloud(
-        self,
-        *,
-        extra: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        self, *, extra: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, **kwargs
     ) -> Tuple[bytes, str]:
         raise NotImplementedError("scanout has no point cloud")
 
-    async def get_properties(
-        self, *, timeout: Optional[float] = None, **kwargs
-    ) -> GetPropertiesResponse:
+    async def get_properties(self, *, timeout: Optional[float] = None, **kwargs) -> GetPropertiesResponse:
         return GetPropertiesResponse(supports_pcd=False, mime_types=["image/jpeg"])
 
     async def close(self) -> None:
